@@ -5,5 +5,6 @@ Project will use JSOUP or SELENIUM headless browser with Chrome driver to scrape
 
 # Links
 https://jsoup.org/download to download jsoup libary google " how to add JSOUP to (your IDE)"
-https://selenium.dev/downloads/ to download selenium library for headless browser just incase JSOUP won't work google the samething for jsoup
+https://selenium.dev/downloads/ to download selenium library for headless browser just incase JSOUP won't work google the samething for jsoup.
+
 https://chromedriver.chromium.org/ to download headless browser that works together with selenium 
