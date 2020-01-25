@@ -21,6 +21,7 @@ import org.jsoup.nodes.Document;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.interactions.Action;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.Select;
@@ -29,15 +30,14 @@ import org.openqa.selenium.support.ui.Select;
  * @author sk
  */
 public class ClassWebScraper {
-    static String[] links = null;
     static int linksCount = 0;
     private static WebDriver driver = null;
 
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
-        System.setProperty("webdriver.chrome.driver", "C:\\Users\\sk\\Downloads\\chromedriver_win32 (2)\\chromedriver.exe");
+    public static void main(String[] args) throws Exception, IOException, ExecutionException, InterruptedException {
+        System.setProperty("webdriver.chrome.driver", "C:\\Users\\sk\\Downloads\\chromedriver_win32 (2)\\chromedriver.exe"); //chrome driver
 
         ChromeOptions chromeOptions = new ChromeOptions();
         // setting headless mode to true.. so there isn't any ui
@@ -46,47 +46,63 @@ public class ClassWebScraper {
         driver = new ChromeDriver(chromeOptions); // opens up chrome browser
         driver.get("https://globalsearch.cuny.edu/CFGlobalSearchTool/search.jsp"); //navigates to the link specified
         driver.findElement(By.id("BKL01")).click(); //this clicks on a button with the specific id
-      //  driver.findElement(By.cssSelector("body")).sendKeys(Keys.CONTROL +"t");
+        //  driver.findElement(By.cssSelector("body")).sendKeys(Keys.CONTROL +"t");
 
         Select dropdown = new Select(driver.findElement(By.id("t_pd"))); //selects drop down
         dropdown.selectByIndex(2); //selects an option from the dropdown
         driver.findElement(By.className("SSSBUTTON_CONFIRMLINK")).click(); // clicks button with the class name
-        // TODO code application logic here
-         dropdown = new Select(driver.findElement(By.id("subject_ld")));
-         //dropdown.selectByValue("CMIS");
+
+        dropdown = new Select(driver.findElement(By.id("subject_ld"))); //creates a dropdown menu for selenium to click to
+        //dropdown.selectByValue("CMIS"); // option to click on from drop down
         dropdown.selectByIndex(1);
-         System.out.println(dropdown);
-          dropdown = new Select(driver.findElement(By.id("courseCareerId")));
-         dropdown.selectByValue("UGRD");
-         driver.findElement(By.id("open_classId")).click();
-          driver.findElement(By.id("btnGetAjax")).click();
-        driver.findElement(By.id("imageDivLink_inst0")).click();
 
-        List<WebElement> linksize = driver.findElements(By.className("cunylite_PAGROUPDIVIDER"));
+        dropdown = new Select(driver.findElement(By.id("courseCareerId"))); //new drop down from a different page or different menu
+        dropdown.selectByValue("UGRD");//select undergrad
+        driver.findElement(By.id("open_classId")).click(); //click element
+        driver.findElement(By.id("btnGetAjax")).click(); //click element
+        driver.findElement(By.id("imageDivLink_inst0")).click(); //click element
 
-        linksCount = linksize.size();
-        System.out.println("Total no of links Available: "+linksCount);
-        links= new String[linksCount];
-        System.out.println("List of links Available: ");
-        for (int i =0 ; i<5; i++){
-            driver.findElement(By.id("imageDivLink"+i)).click();
+        //List<WebElement>  = driver.findElements(By.className("cunylite_PAGROUPDIVIDER")); // links of all classes list in the search
+        List<WebElement> allLinks = driver.findElements(By.tagName("a")); //find all links and store it in a list
+       HashSet<String> allLinksNoDuplicates = new HashSet<String>(); //create hashset to dump links into and get rid of duplicate links
+        for(WebElement link : allLinks){ //loop through list of all links and add them into hashset if they meet certain criteria
+            String hrefLink = link.getAttribute("href"); //store the href into a string
+            if( hrefLink != null) { //if link isn't null
+                if(hrefLink.contains("https://globalsearch.cuny.edu/CFGlobalSearchTool/CFSearchToolController?class_number_searched") == true) //some links are unenncessary like the homepage link so we just check for the links with classes and add them into hashset
+                    allLinksNoDuplicates.add(hrefLink); // add class href link into set
+            }
         }
-        List<WebElement> links = driver.findElements(By.tagName("tr"));
-        System.out.println(links.size());//
-        Set<Cookie> cookies = driver.manage().getCookies();
 
+
+        System.out.println("Total no of links Available: " + allLinksNoDuplicates.size()); //check if the class links size matches with the result page links size
+      //  links = new String[linksCount];
+       // System.out.println("List of links Available: ");
+//        for (int i =0 ; i<linksCount; i++){
+//            driver.findElement(By.id("imageDivLink"+i)).click();
+//        }
+
+        Set<Cookie> cookies = driver.manage().getCookies(); //set cookies so we save the session
         CourseScrapeStore courselink = new CourseScrapeStore();
-        for (int i = 2; i<links.size()-10 ; i++){//*[@id="contentDivImg0"]/table/tbody/tr[2]/td[2]/a
-
-         WebElement link =   driver.findElement(By.xpath("//*[@id=\"contentDivImg0\"]/table/tbody/tr["+i+"]/td[2]/a"));
-         String testlink  = link.getAttribute("href");
-            courselink.newCunyLinkScrapeWithBrowser(testlink, cookies);
-            Thread.sleep(10000);
-            System.out.println(courselink.toString());
-
-
+        for (String links : allLinksNoDuplicates){
+            String subject = driver.findElement(By.xpath("//*[@id=\"wrapper\"]/form/span[2]/strong[1]")).getText();
+            courselink.newCunyLinkScrapeWithBrowser(links, cookies, subject);
         }
-
+        driver.close();
+        courselink.close();
+   // driver.close();
+//        CourseScrapeStore courselink = new CourseScrapeStore();
+//        for (int j = 0; j < links.size(); j++) {
+//            for (int i = 2; i < 3; i++) {
+//                WebElement link = driver.findElement(By.xpath("//*[@id=\"contentDivImg" + j + "\"]/table/tbody/tr[" + i + "]/td[2]/a"));
+//                String subject = driver.findElement(By.xpath("//*[@id=\"wrapper\"]/form/span[2]/strong[1]")).getText();
+//                String testlink = link.getAttribute("href");
+//                courselink.newCunyLinkScrapeWithBrowser(testlink, cookies, subject);
+//
+//                System.out.println(courselink.toString());
+//
+//
+//            }
+//        }
 
 
     }
