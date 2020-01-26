@@ -16,6 +16,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,6 +44,7 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
     private Integer available_seats;    // available seats in class
     private WebDriver driver;
     private Firestore db;
+
     public CourseScrapeStore() throws Exception {
         System.setProperty("webdriver.chrome.driver", "C:\\Users\\sk\\Downloads\\chromedriver_win32 (2)\\chromedriver.exe"); //chromedriver
         this.driver = new ChromeDriver();
@@ -55,11 +57,24 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
                 .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                 .setDatabaseUrl("https://class-notification-app.firebaseio.com")
                 .build();
+        // piece of code is to check if there is more than one connection to firebase and only use one
+        FirebaseApp firebaseApp = null;
+        List<FirebaseApp> firebaseApps = FirebaseApp.getApps();
+        if (firebaseApps != null && !firebaseApps.isEmpty()) {
+            for (FirebaseApp app : firebaseApps) {
+                if (app.getName().equals(FirebaseApp.DEFAULT_APP_NAME))
+                    firebaseApp = app;
+            }
+        } else {
+            firebaseApp = FirebaseApp.initializeApp(options); //if no app is found then load it.
+            Firestore db = FirestoreClient.getFirestore();
+        }
 
-        FirebaseApp.initializeApp(options);
-        Firestore db = FirestoreClient.getFirestore();
 
-    };
+    }
+
+    ;
+
     public CourseScrapeStore(String link) {
         //selects element with a certain id or xpath, to get xpath or id use developer tools -> click on an element with selector tool ->  right click the code that gets highlighted ->  copy -> "XPATH", same thing for id except copy "selector"
         System.setProperty("webdriver.chrome.driver", "C:\\Users\\sk\\Downloads\\chromedriver_win32 (2)\\chromedriver.exe");
@@ -80,7 +95,7 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
             driver.get(link);
 
             grabHTMLElements(); // grab html elements and set them to correct variables
-            storeData( ); //store data method into firestore
+            storeData(); //store data method into firestore
 
         } catch (Exception e) {
             System.out.println(e.getStackTrace());
@@ -88,30 +103,25 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
     }
 
 
-    public void newCunyLinkScrapeWithBrowser(String link, Set<Cookie> cookies, String subject) throws Exception{ //method to get new link, and view the browser
+    public void newCunyLinkScrapeWithBrowser(String link, Set<Cookie> cookies, String subject) throws Exception { //method to get new link, and view the browser
         //selects element with a certain id or xpath, to get xpath or id use developer tools -> click on an element with selector tool ->  right click the code that gets highlighted ->  copy -> "XPATH", same thing for id except copy "selector"
 
 
-
-    try {
-        for (Cookie cookie : cookies) {
-            driver.manage().addCookie(cookie);
+        try {
+            for (Cookie cookie : cookies) {
+                driver.manage().addCookie(cookie);
+            }
+            driver.get(link);
+            waitForLoad(driver);
+            this.subject = subject;
+            grabHTMLElements(); // grab html elements and set them to correct variables
+            storeData(); //store data method into firestore
+        } catch (Exception e) {
+            System.out.println(e);
         }
 
-        driver.get(link);
-        waitForLoad(driver);
-        //WebDriverWait wait = new WebDriverWait(driver, 5);
-        //wait.until(driver);
-        this.subject = subject;
-        grabHTMLElements(); // grab html elements and set them to correct variables
-        storeData(); //store data method into firestore
-        //Thread.sleep(2000);
-    }
-    catch (Exception e){
-        System.out.println(e);
     }
 
-    }
     public void waitForLoad(WebDriver driver) {
         ExpectedCondition<Boolean> pageLoadCondition = new
                 ExpectedCondition<Boolean>() {
@@ -121,12 +131,13 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
                 };
     }
 
-    public void close(){
+    public void close() {
         driver.close();
     }
-    public void grabHTMLElements(){// grab html elements and set them to correct variables
 
-       // System.out.println("subject " + subject);
+    public void grabHTMLElements() {// grab html elements and set them to correct variables
+
+        // System.out.println("subject " + subject);
         course_title_number = driver.findElement(By.id("DERIVED_CLSRCH_DESCR200")).getText();
         course_detail = driver.findElement(By.xpath("//*[@id=\"wrapper\"]/form/span[2]")).getText();
         dates = driver.findElement(By.id("SSR_CLS_DTL_WRK_SSR_DATE_LONG")).getText();               //dates when the class takes place
@@ -148,12 +159,12 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
         class_capacity = Integer.parseInt(driver.findElement(By.id("SSR_CLS_DTL_WRK_ENRL_CAP")).getText());     //class capacity
         available_seats = Integer.parseInt(driver.findElement(By.id("SSR_CLS_DTL_WRK_AVAILABLE_SEATS")).getText());
     }
+
     //method to store data into firestore
-    private void storeData( ) throws Exception{
+    private void storeData() throws Exception {
 
 
-
-       // FirebaseApp.initializeApp(options);
+        // FirebaseApp.initializeApp(options);
         Firestore db = FirestoreClient.getFirestore();
         Map<String, Object> docData = new HashMap<>();
         docData.put("course detail", this.course_detail);
@@ -175,15 +186,20 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
         docData.put("class capacity", class_capacity);
         docData.put("available seats", available_seats);
 
-        String course_collection_name = course_title_number.substring(0 , 12);
-        String course_section_doc_name = course_title_number.substring(13, 18);
 
-        course_collection_name = course_collection_name.replaceAll("\\.","");
-        course_section_doc_name = course_section_doc_name.replaceAll("-","");
+        String [] course_string_split = course_title_number.split("\\s+");
 
-        System.out.println("course number collection "+course_collection_name);
-        System.out.println("course section number "+course_section_doc_name);//
-        //  docData.put("regions", Arrays.asList("west_coast", "socal"));//
+
+        String course_collection_name = course_string_split[1] + " "+course_string_split[2];
+
+        String course_section_doc_name = course_string_split[4];
+
+        course_collection_name = course_collection_name.replaceAll("\\.", "");
+        //course_section_doc_name = course_section_doc_name.replaceAll("-", "");
+
+        System.out.println("course number collection " + course_collection_name);
+        System.out.println("course section number " + course_section_doc_name);//
+
         // Add a new document (asynchronously) in collection "cities" with id "LA"
         ApiFuture<WriteResult> future = db.collection("cuny").document("BLK01").collection("courses").document(subject).collection(course_collection_name).document(course_section_doc_name).set(docData);
         //  ...
@@ -408,4 +424,6 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
     public WebDriver getDriver() {
         return driver;
     }
+
+
 }
