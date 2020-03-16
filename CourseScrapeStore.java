@@ -19,8 +19,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class CourseScrapeStore { //class to scrape and store into firestore database
+    private String school_name; // school name to store into the firebase database.
     private String subject; //subject i.e accounting, computer science etc...
     private String course_title_number;
     private String course_detail;
@@ -42,16 +44,21 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
     private Integer enrolled;           //how many are enrolled in clas
     private Integer class_capacity;     //class capacity
     private Integer available_seats;    // available seats in class
+    private String classURLLink; // this will store the url link of the class
     private WebDriver driver;
     private Firestore db;
 
     public CourseScrapeStore() throws Exception {
-        System.setProperty("webdriver.chrome.driver", "C:\\Users\\sk\\Downloads\\chromedriver_win32 (2)\\chromedriver.exe"); //chromedriver
-        this.driver = new ChromeDriver();
+        System.setProperty("webdriver.chrome.driver", System.getenv("CHROME_DRIVER")); //chromedriver
+        ChromeOptions chromeOptions = new ChromeOptions();
+        // setting headless mode to true.. so there isn't any ui
+      //  chromeOptions.setHeadless(true);
+        chromeOptions.addArguments("incognito");
+        this.driver = new ChromeDriver(chromeOptions);
         driver.get("https://google.com");
         String projectID = "class-notification-app";
         FileInputStream serviceAccount =
-                new FileInputStream("C:\\Users\\sk\\Documents\\brooklyn college\\class-notification-app-firebase-adminsdk-l62tb-87b92f0156.json");
+                new FileInputStream(System.getenv("FIREBASE_CONNECTION"));
 
         FirebaseOptions options = new FirebaseOptions.Builder()
                 .setCredentials(GoogleCredentials.fromStream(serviceAccount))
@@ -81,6 +88,7 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
         ChromeOptions chromeOptions = new ChromeOptions();
         // setting headless mode to true.. so there isn't any ui
         chromeOptions.setHeadless(true);
+
         try {
 
             driver = new ChromeDriver(chromeOptions); // opens up chrome browser
@@ -103,9 +111,10 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
     }
 
 
-    public void newCunyLinkScrapeWithBrowser(String link, Set<Cookie> cookies, String subject) throws Exception { //method to get new link, and view the browser
+    public void newCunyLinkScrapeWithBrowser(String link, Set<Cookie> cookies, String subject, String school_name) throws Exception { //method to get new link, and view the browser
         //selects element with a certain id or xpath, to get xpath or id use developer tools -> click on an element with selector tool ->  right click the code that gets highlighted ->  copy -> "XPATH", same thing for id except copy "selector"
-
+        this.school_name = school_name;
+        System.out.println(school_name);
 
         try {
             for (Cookie cookie : cookies) {
@@ -158,6 +167,7 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
         enrolled = Integer.parseInt(driver.findElement(By.id("SSR_CLS_DTL_WRK_ENRL_TOT")).getText());           //how many are enrolled in clas
         class_capacity = Integer.parseInt(driver.findElement(By.id("SSR_CLS_DTL_WRK_ENRL_CAP")).getText());     //class capacity
         available_seats = Integer.parseInt(driver.findElement(By.id("SSR_CLS_DTL_WRK_AVAILABLE_SEATS")).getText());
+        classURLLink = driver.getCurrentUrl();
     }
 
     //method to store data into firestore
@@ -167,6 +177,7 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
         // FirebaseApp.initializeApp(options);
         Firestore db = FirestoreClient.getFirestore();
         Map<String, Object> docData = new HashMap<>();
+        //store into firebase using hashmap
         docData.put("course detail", this.course_detail);
         docData.put("dates", dates);
         docData.put("days & times", days_time);
@@ -185,23 +196,24 @@ public class CourseScrapeStore { //class to scrape and store into firestore data
         docData.put("enrolled", enrolled);
         docData.put("class capacity", class_capacity);
         docData.put("available seats", available_seats);
+        docData.put("url" , classURLLink);
 
 
-        String [] course_string_split = course_title_number.split("\\s+");
+        String [] course_string_split = course_title_number.split("\\s+"); // split page title into seperate parts so we can categorize in database
 
 
-        String course_collection_name = course_string_split[1] + " "+course_string_split[2];
+        String course_collection_name = course_string_split[1] + " "+course_string_split[2]; // course abbreviation + course number i.e CISC 3115
 
-        String course_section_doc_name = course_string_split[4];
+        String course_section_doc_name = course_string_split[4]; // this is the section number i.e MW12 ( CISC 3115 - MW12)
 
-        course_collection_name = course_collection_name.replaceAll("\\.", "");
-        //course_section_doc_name = course_section_doc_name.replaceAll("-", "");
+        course_collection_name = course_collection_name.replaceAll("\\.", ""); // removes periods f
 
-        System.out.println("course number collection " + course_collection_name);
-        System.out.println("course section number " + course_section_doc_name);//
+        docData.put("title",course_collection_name+ " - "+course_section_doc_name); // compbine course abbreviation and number with the course section as well and store it in "title" section in database i.e = "title" = CISC 3115 - MW12
+        System.out.println("course number collection " + course_collection_name); //check if name is correct
+        System.out.println("course section number " + course_section_doc_name);// check if correct
 
         // Add a new document (asynchronously) in collection "cities" with id "LA"
-        ApiFuture<WriteResult> future = db.collection("cuny").document("BLK01").collection("courses").document(subject).collection(course_collection_name).document(course_section_doc_name).set(docData);
+        ApiFuture<WriteResult> future = db.collection("cuny").document(school_name).collection("courses").document(subject).collection(course_collection_name).document(course_section_doc_name).set(docData);
         //  ...
         //  future.get() blocks on response
         System.out.println("Update time : " + future.get().getUpdateTime());
