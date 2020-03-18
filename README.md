@@ -1,7 +1,7 @@
 # classnotificationapp
-project that will notify a person when their class has room available to sign up for
+project to look up class info through an app without loging in through any cuny systems.
 
-Project will use mostly selenium headless browser for scraping classes. these classes will be stored into firebase firestore database and then, that database is going to connect to an android app that will communicate with database to get the updates.
+Project will use mostly selenium headless browser for scraping classes. these classes will be stored into firebase firestore database and then, that database is going to connect to an android app that will query database to class information.
 
 # Links
 https://jsoup.org/download to download jsoup libary. To add downloaded lib into IDE google " how to add JSOUP to (your IDE)"
