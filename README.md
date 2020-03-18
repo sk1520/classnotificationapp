@@ -1,4 +1,4 @@
-# classnotificationapp
+# classinfoapp
 project to look up class info through an app without loging in through any cuny systems.
 
 Project will use mostly selenium headless browser for scraping classes. these classes will be stored into firebase firestore database and then, that database is going to connect to an android app that will query database to class information.
